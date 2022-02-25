@@ -3,7 +3,11 @@
 #ifdef DEBUG
 #define EIGEN_INITIALIZE_MATRICES_BY_NAN
 #endif
-// Need to define EIGEN_USE_THREADS before including these. This is done in CMakeLists.txt
+
+#define EIGEN_USE_THREADS
+#ifdef RL_CUDA
+#define EIGEN_USE_GPU
+#endif
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
 

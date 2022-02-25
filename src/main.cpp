@@ -1,3 +1,4 @@
+#include "fft/fft.hpp"
 #include "log.h"
 #include "main_defs.h"
 
@@ -45,6 +46,6 @@ int main(int const argc, char const *const argv[])
     fmt::print(stderr, "{}\n", f.what());
     exit(EXIT_FAILURE);
   }
-
+  FFT::End();
   exit(EXIT_SUCCESS);
 }

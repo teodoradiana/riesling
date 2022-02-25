@@ -19,9 +19,6 @@ find_package(hdf5 CONFIG REQUIRED)
 find_package(NIFTI REQUIRED)
 find_package(scn REQUIRED)
 
-# Ensure this is always defined across all .cpp files
-add_definitions(-DEIGEN_USE_THREADS)
-
 # Common library between tests and main executable
 add_library(vineyard
     src/coils.cpp
@@ -51,7 +48,6 @@ add_library(vineyard
     src/threads.cpp
     src/trajectory.cpp
     src/traj_spirals.cpp
-    # src/vc.cpp
     src/wavelets.cpp
     src/zinfandel.cpp
     src/fft/fft.cpp
@@ -71,6 +67,15 @@ target_link_libraries(vineyard PUBLIC
     NIFTI::niftiio
     scn::scn
 )
+option(BUILD_CUDA "Build with CUDA support" OFF)
+if( ${BUILD_CUDA} )
+    find_package(CUDAToolkit REQUIRED)
+    target_compile_definitions(vineyard PRIVATE RL_CUDA)
+    # target_sources(vineyard PRIVATE src/fft/cuda.cpp)
+    target_include_directories(vineyard PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    target_link_libraries(vineyard PRIVATE CUDA::cufft CUDA::cudart)
+endif()
+
 
 # Main executable
 add_executable(riesling

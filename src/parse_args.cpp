@@ -1,4 +1,5 @@
 #include "parse_args.h"
+#include "fft/fft.hpp"
 #include "io.h"
 #include "tensorOps.h"
 #include "threads.h"
@@ -69,7 +70,8 @@ args::MapFlag<int, Log::Level> verbosity(
   "Talk even more (values 0-3, see documentation)",
   {"verbosity"},
   levelMap);
-args::ValueFlag<Index> nthreads(global_group, "THREADS", "Limit number of threads", {"nthreads"});
+args::ValueFlag<std::string> gpu(global_group, "GPU", "Use specified GPU", {"gpu"}, "fftw");
+args::ValueFlag<Index> nthreads(global_group, "T", "CPU thread limit", {"nthreads"});
 
 void ParseCommand(args::Subparser &parser, args::Positional<std::string> &iname)
 {
@@ -83,6 +85,7 @@ void ParseCommand(args::Subparser &parser, args::Positional<std::string> &iname)
     Log::Print(FMT_STRING("Using {} threads"), nthreads.Get());
     Threads::SetGlobalThreadCount(nthreads.Get());
   }
+  FFT::Init(gpu.Get());
 }
 
 void ParseCommand(args::Subparser &parser)

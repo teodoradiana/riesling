@@ -19,7 +19,7 @@ struct FFT
   virtual void reverse(Tensor &x) const; //!< K-space to image space
 };
 
-void Start();
+void Init(std::string const &type);
 void End();
 void SetTimelimit(double time);
 Cx1 Phase(Index const sz);

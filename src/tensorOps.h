@@ -3,11 +3,9 @@
 #ifdef DEBUG
 #define EIGEN_INITIALIZE_MATRICES_BY_NAN
 #endif
-// Need to define EIGEN_USE_THREADS before including these. This is done in CMakeLists.txt
-#include <Eigen/Dense>
-#include <unsupported/Eigen/CXX11/Tensor>
 
 #include "threads.h"
+#include "types.h"
 
 // Tensor operations
 template <typename T>

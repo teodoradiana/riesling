@@ -14,7 +14,7 @@ int main_nufft(args::Subparser &parser)
   args::ValueFlag<std::string> dset(
     parser, "D", "Dataset name (channels/noncartesian)", {'d', "dset"});
   ParseCommand(parser, iname);
-  FFT::Start();
+
   HD5::RieslingReader reader(iname.Get());
   auto const traj = reader.trajectory();
   auto const info = traj.info();
@@ -50,6 +50,5 @@ int main_nufft(args::Subparser &parser)
     Log::Print(FMT_STRING("Forward NUFFT took {}"), Log::ToNow(start));
   }
 
-  FFT::End();
   return EXIT_SUCCESS;
 }

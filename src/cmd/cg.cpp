@@ -3,7 +3,7 @@
 #include "algo/cg.hpp"
 #include "cropper.h"
 #include "log.h"
-#include "op/recon.hpp"
+#include "op/recon-sense.hpp"
 #include "parse_args.h"
 #include "sdc.h"
 #include "sense.h"
@@ -33,11 +33,11 @@ int main_cg(args::Subparser &parser)
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
 
-  ReconOp recon(gridder.get(), senseMaps, sdc.get());
+  ReconSENSE recon(gridder.get(), senseMaps, sdc.get());
   if (toeplitz) {
     recon.calcToeplitz();
   }
-  NormalEqOp<ReconOp> normEqs{recon};
+  NormalEqOp<ReconSENSE> normEqs{recon};
   auto sz = recon.inputDimensions();
   Cropper out_cropper(info, LastN<3>(sz), extra.out_fov.Get());
   Cx4 vol(sz);

@@ -3,7 +3,7 @@
 #include "cropper.h"
 #include "filter.h"
 #include "log.h"
-#include "op/recon.hpp"
+#include "op/recon-sense.hpp"
 #include "parse_args.h"
 #include "sdc.h"
 #include "sense.h"
@@ -33,7 +33,7 @@ int main_tgv(args::Subparser &parser)
   auto gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
-  ReconOp recon(gridder.get(), senseMaps, sdc.get());
+  ReconSENSE recon(gridder.get(), senseMaps, sdc.get());
 
   auto sz = recon.inputDimensions();
   Cropper out_cropper(info, LastN<3>(sz), extra.out_fov.Get());

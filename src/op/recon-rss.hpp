@@ -1,6 +1,6 @@
 #pragma once
 
-#include "operator.hpp"
+#include "recon.hpp"
 
 #include "nufft.hpp"
 #include "sdc.hpp"
@@ -8,25 +8,27 @@
 
 namespace rl {
 
-struct ReconRSSOp final : Operator<4, 3>
+struct ReconRSS final : ReconOp
 {
-  ReconRSSOp(GridBase<Cx>*gridder, Sz3 const &dims, SDCOp *sdc = nullptr)
+  using typename ReconOp::Input;
+  using typename ReconOp::Output;
+
+  ReconRSS(GridBase<Cx>*gridder, Sz3 const &dims, SDCOp *sdc = nullptr)
     : nufft_{dims, gridder, sdc}
   {
   }
 
-  InputDims inputDimensions() const
+  auto inputDimensions() const -> InputDims
   {
     return LastN<4>(nufft_.inputDimensions());
   }
 
-  OutputDims outputDimensions() const
+  auto outputDimensions() const -> OutputDims
   {
     return nufft_.outputDimensions();
   }
 
-  template <typename T>
-  auto Adj(T const &x) const
+  auto Adj(Output const &x) const -> Input
   {
     Log::Debug("Starting ReconRSSOp adjoint. Norm {}", Norm(x));
     auto const start = Log::Now();
@@ -35,6 +37,14 @@ struct ReconRSSOp final : Operator<4, 3>
     y.device(Threads::GlobalDevice()) = ConjugateSum(channels, channels).sqrt();
     Log::Debug("Finished ReconOp adjoint. Norm {}. Took {}", Norm(y), Log::ToNow(start));
     return y;
+  }
+
+  auto A(Input const &) const -> Output {
+    Log::Fail("ReconRSS does not support Forward operation");
+  }
+
+  auto AdjA(Input const &) const -> Input {
+    Log::Fail("ReconRSS does not support Adjoint*Forward operation");
   }
 
 private:

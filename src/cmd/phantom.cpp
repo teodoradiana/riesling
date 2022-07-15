@@ -2,7 +2,7 @@
 #include "coils.h"
 #include "io/hd5.hpp"
 #include "log.h"
-#include "op/recon.hpp"
+#include "op/recon-sense.hpp"
 #include "parse_args.h"
 #include "phantom_shepplogan.h"
 #include "phantom_sphere.h"
@@ -105,7 +105,7 @@ int main_phantom(args::Subparser &parser)
   auto const kernel = rl::make_kernel(ktype.Get(), info.type, osamp.Get());
   Mapping const mapping(traj, kernel.get(), osamp.Get(), bucketSize.Get());
   auto gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, basisFile.Get());
-  ReconOp recon(gridder.get(), senseMaps);
+  ReconSENSE recon(gridder.get(), senseMaps);
   auto const sz = recon.inputDimensions();
   Cx4 phan(sz);
 

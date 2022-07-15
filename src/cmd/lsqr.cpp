@@ -3,7 +3,7 @@
 #include "algo/lsqr.hpp"
 #include "cropper.h"
 #include "log.h"
-#include "op/recon.hpp"
+#include "op/recon-sense.hpp"
 #include "parse_args.h"
 #include "precond/scaling.hpp"
 #include "precond/single.hpp"
@@ -40,7 +40,7 @@ int main_lsqr(args::Subparser &parser)
   auto gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
-  ReconOp recon(gridder.get(), senseMaps, nullptr);
+  ReconSENSE recon(gridder.get(), senseMaps, nullptr);
 
   std::unique_ptr<Precond<Cx3>> M = lp ? std::make_unique<SingleChannel>(traj, kernel.get()) : nullptr;
   std::unique_ptr<Precond<Cx4>> N = nullptr;

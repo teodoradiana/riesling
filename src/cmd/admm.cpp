@@ -5,7 +5,7 @@
 #include "cropper.h"
 #include "io/hd5.hpp"
 #include "log.h"
-#include "op/recon.hpp"
+#include "op/recon-sense.hpp"
 #include "parse_args.h"
 #include "precond/single.hpp"
 #include "sdc.h"
@@ -50,7 +50,7 @@ int main_admm(args::Subparser &parser)
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
 
   std::unique_ptr<Precond<Cx3>> M = precond ? std::make_unique<SingleChannel>(traj, kernel.get()) : nullptr;
-  ReconOp recon(gridder.get(), senseMaps, sdc.get());
+  ReconSENSE recon(gridder.get(), senseMaps, sdc.get());
 
   auto reg = [&](Cx4 const &x) -> Cx4 { return llr_sliding(x, λ.Get() / ρ.Get(), patchSize.Get()); };
 

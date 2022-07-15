@@ -21,6 +21,8 @@ struct Opts
 //! Calculates a set of SENSE maps from non-cartesian data, assuming an oversampled central region
 Cx4 SelfCalibration(
   Info const &i, GridBase<Cx> *g, float const fov, float const res, float const λ, Index const frame, Cx3 const &data);
+Cx4 SelfCalibrationKernels(
+  Info const &i, GridBase<Cx> *gridder, float const res, float const λ, Index const frame, Index const kSz, Cx3 const &data);
 Cx4 Load(std::string const &calFile);                              //! Loads a set of SENSE maps from a file
 Cx4 Interp(std::string const &calFile, Eigen::Array3l const dims); //! Interpolate with FFT
 

@@ -14,6 +14,7 @@ std::string const Dictionary = "dictionary";
 std::string const Dynamics = "dynamics";
 std::string const Image = "image";
 std::string const Info = "info";
+std::string const Kernels = "sense-kernels";
 std::string const Meta = "meta";
 std::string const Noncartesian = "noncartesian";
 std::string const Norm = "norm";

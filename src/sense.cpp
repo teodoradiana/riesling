@@ -65,6 +65,50 @@ Cx4 SelfCalibration(
   return channels;
 }
 
+Cx4 SelfCalibrationKernels(
+  Info const &info,
+  GridBase<Cx> *gridder,
+  float const res,
+  float const λ,
+  Index const frame,
+  Index const kSz,
+  Cx3 const &data)
+{
+  Log::Debug(FMT_STRING("*** Self-Calibrated SENSE kernels ***"));
+  Sz5 const dims = gridder->inputDimensions();
+  if (frame >= dims[1]) {
+    Log::Fail("Specified SENSE frame {} is greater than number of frames in data {}", frame, dims[1]);
+  }
+  Cx4 channels(dims[0], dims[2], dims[3], dims[4]);
+  if (dims[0] == 1) { // Only one channel, return all ones
+    channels.setConstant(1.);
+    return channels;
+  }
+
+  auto const fft = FFT::Make<4, 3>(channels);
+  channels.device(Threads::GlobalDevice()) = gridder->Adj(data).chip<1>(frame);
+  float const end_rad = info.voxel_size.minCoeff() / res;
+  float const start_rad = 0.5 * end_rad;
+  Log::Print(FMT_STRING("SENSE filter {}-{}"), start_rad, end_rad);
+  KSTukey(start_rad, end_rad, 0.f, channels);
+  fft->reverse(channels);
+
+  Cx3 rss(LastN<3>(dims));
+  rss.device(Threads::GlobalDevice()) = ConjugateSum(channels, channels).sqrt();
+  if (λ > 0.f) {
+    Log::Print(FMT_STRING("Regularization lambda {}"), λ);
+    rss.device(Threads::GlobalDevice()) = rss + rss.constant(λ);
+  }
+  Log::Print(FMT_STRING("Normalizing channel images"));
+  channels.device(Threads::GlobalDevice()) = channels / TileToMatch(rss, channels.dimensions());
+  Log::Print(FMT_STRING("FFT back to k-space"));
+  fft->forward(channels);
+  Log::Print(FMT_STRING("Crop to kernel size"));
+  Cx4 const kernels = Crop4(channels, Sz3{kSz, kSz, kSz});
+  Log::Print(FMT_STRING("Finished SENSE kernels"));
+  return kernels;
+}
+
 Cx4 Load(std::string const &calFile, Info const &i)
 {
   HD5::Reader senseReader(calFile);

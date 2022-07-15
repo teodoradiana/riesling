@@ -93,6 +93,7 @@ std::unique_ptr<FFT<TRank, FFTRank>> Make(typename FFT<TRank, FFTRank>::Tensor &
 }
 
 template std::unique_ptr<FFT<4, 2>> Make(typename FFT<4, 2>::Tensor &, Index const);
+template std::unique_ptr<FFT<4, 3>> Make(typename FFT<4, 2>::Tensor &, Index const);
 template std::unique_ptr<FFT<5, 3>> Make(typename FFT<5, 3>::Tensor &, Index const);
 
 } // namespace FFT

@@ -14,21 +14,21 @@ template <typename Op>
 struct NormalEqOp
 {
   using Input = typename Op::Input;
-  Op const &op;
+  Op const *op;
 
   auto inputDimensions() const
   {
-    return op.inputDimensions();
+    return op->inputDimensions();
   }
 
   auto outputDimensions() const
   {
-    return op.inputDimensions();
+    return op->inputDimensions();
   }
 
   Input A(typename Op::Input const &x) const
   {
-    return Input(op.AdjA(x));
+    return Input(op->AdjA(x));
   }
 };
 
@@ -39,7 +39,7 @@ template <typename Op>
 typename Op::Input cg(
   Index const &max_its,
   float const &tol,
-  Op const &op,
+  Op const *op,
   typename Op::Input const &b,
   typename Op::Input const &x0 = typename Op::Input(),
   bool const debug = false)
@@ -47,14 +47,14 @@ typename Op::Input cg(
   auto dev = Threads::GlobalDevice();
   // Allocate all memory
   using T = typename Op::Input;
-  CheckDimsEqual(op.outputDimensions(), b.dimensions());
-  auto const dims = op.inputDimensions();
+  CheckDimsEqual(op->outputDimensions(), b.dimensions());
+  auto const dims = op->inputDimensions();
   T q(dims), p(dims), r(dims), x(dims);
   // If we have an initial guess, use it
   if (x0.size()) {
     CheckDimsEqual(dims, x0.dimensions());
     Log::Print("Warm-start CG");
-    r.device(dev) = b - op.A(x0);
+    r.device(dev) = b - op->A(x0);
     x.device(dev) = x0;
   } else {
     r.device(dev) = b;
@@ -65,7 +65,7 @@ typename Op::Input cg(
   float const thresh = tol * sqrt(r_old);
   Log::Print(FMT_STRING("CG    |r| {:5.3E} threshold {:5.3E}"), sqrt(r_old), thresh);
   for (Index icg = 0; icg < max_its; icg++) {
-    q = op.A(p);
+    q = op->A(p);
     float const alpha = r_old / Dot(p, q).real();
     x.device(dev) = x + p * p.constant(alpha);
     if (debug) {

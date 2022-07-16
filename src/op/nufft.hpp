@@ -11,7 +11,7 @@
 namespace rl {
 struct NUFFTOp final : Operator<5, 3>
 {
-  NUFFTOp(Sz3 const imgDims, GridBase<Cx> *g, SDCOp *sdc = nullptr);
+  NUFFTOp(Sz3 const imgDims, GridBase<Cx> *g, SDCOp *sdc = nullptr, bool const toeplitz = false);
 
   auto inputDimensions() const -> InputDims;
   auto outputDimensions() const -> OutputDims;

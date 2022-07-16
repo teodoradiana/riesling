@@ -50,11 +50,11 @@ int main_admm(args::Subparser &parser)
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
 
   std::unique_ptr<Precond<Cx3>> M = precond ? std::make_unique<SingleChannel>(traj, kernel.get()) : nullptr;
-  ReconSENSE recon(gridder.get(), senseMaps, sdc.get());
+  auto recon = std::make_unique<ReconSENSE>(gridder.get(), senseMaps, sdc.get(), false);
 
   auto reg = [&](Cx4 const &x) -> Cx4 { return llr_sliding(x, λ.Get() / ρ.Get(), patchSize.Get()); };
 
-  auto sz = recon.inputDimensions();
+  auto sz = recon->inputDimensions();
   Cropper out_cropper(info, LastN<3>(sz), extra.out_fov.Get());
   Cx4 vol(sz);
   Sz3 outSz = out_cropper.size();
@@ -68,7 +68,7 @@ int main_admm(args::Subparser &parser)
         outer_its.Get(),
         inner_its.Get(),
         atol.Get(),
-        recon,
+        recon.get(),
         reg,
         ρ.Get(),
         reader.noncartesian(iv),
@@ -80,7 +80,7 @@ int main_admm(args::Subparser &parser)
         ρ.Get(),
         reg,
         inner_its.Get(),
-        recon,
+        recon.get(),
         reader.noncartesian(iv),
         M.get(),
         atol.Get(),
@@ -94,7 +94,7 @@ int main_admm(args::Subparser &parser)
         ρ.Get(),
         reg,
         inner_its.Get(),
-        recon,
+        recon.get(),
         reader.noncartesian(iv),
         M.get(),
         atol.Get(),

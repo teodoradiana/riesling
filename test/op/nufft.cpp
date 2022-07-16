@@ -30,8 +30,7 @@ TEST_CASE("ops-nufft")
   Mapping const mapping(traj, kernel.get(), os, 32);
   auto grid = make_grid<Cx>(kernel.get(), mapping, info.channels);
   SDCOp sdc(SDC::Pipe(traj, true, os), info.channels);
-  auto nufft = NUFFTOp(Sz3{M, M, M}, grid.get(), &sdc);
-  nufft.calcToeplitz();
+  auto nufft = NUFFTOp(Sz3{M, M, M}, grid.get(), &sdc, true);
   auto const dims = nufft.inputDimensions();
   Cx5 x(dims), y(dims);
   Cx3 r(info.channels, info.read_points, info.spokes);

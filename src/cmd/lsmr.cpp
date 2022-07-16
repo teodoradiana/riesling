@@ -38,9 +38,9 @@ int main_lsmr(args::Subparser &parser)
   std::unique_ptr<Precond<Cx3>> pre = precond.Get() ? std::make_unique<SingleChannel>(traj, kernel.get()) : nullptr;
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
-  ReconSENSE recon(gridder.get(), senseMaps, nullptr);
+  auto recon = std::make_unique<ReconSENSE>(gridder.get(), senseMaps, sdc.get(), false);
 
-  auto sz = recon.inputDimensions();
+  auto sz = recon->inputDimensions();
   Cropper out_cropper(info, LastN<3>(sz), extra.out_fov.Get());
   Cx4 vol(sz);
   Sz3 outSz = out_cropper.size();
@@ -50,7 +50,7 @@ int main_lsmr(args::Subparser &parser)
   auto const &all_start = Log::Now();
   for (Index iv = 0; iv < info.volumes; iv++) {
     auto const &vol_start = Log::Now();
-    vol = lsmr(its.Get(), recon, reader.noncartesian(iv), atol.Get(), btol.Get(), ctol.Get(), damp.Get(), pre.get());
+    vol = lsmr(its.Get(), recon.get(), reader.noncartesian(iv), atol.Get(), btol.Get(), ctol.Get(), damp.Get(), pre.get());
     cropped = out_cropper.crop4(vol);
     out.chip<4>(iv) = cropped;
     Log::Print(FMT_STRING("Volume {}: {}"), iv, Log::ToNow(vol_start));

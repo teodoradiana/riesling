@@ -40,22 +40,22 @@ int main_lsqr(args::Subparser &parser)
   auto gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
-  ReconSENSE recon(gridder.get(), senseMaps, nullptr);
+  auto recon = std::make_unique<ReconSENSE>(gridder.get(), senseMaps, sdc.get(), false);
+  auto const sz = recon.inputDimensions();
 
   std::unique_ptr<Precond<Cx3>> M = lp ? std::make_unique<SingleChannel>(traj, kernel.get()) : nullptr;
   std::unique_ptr<Precond<Cx4>> N = nullptr;
   if (rp) {
     auto sgrid = make_grid<Cx>(kernel.get(), mapping, 1, core.basisFile.Get());
-    NUFFTOp snufft(LastN<3>(recon.inputDimensions()), sgrid.get());
+    NUFFTOp snufft(LastN<3>(sz), sgrid.get());
     Cx3 ones(sgrid->outputDimensions());
     ones.setConstant(1.f);
     auto const &imgs = snufft.Adj(ones);
     R1 scales = (imgs.conjugate() * imgs).real().sum(Sz4{0, 2, 3, 4}).sqrt();
     scales /= scales.constant(scales[0]);
-    N = std::make_unique<Scaling>(recon.inputDimensions(), scales);
+    N = std::make_unique<Scaling>(sz, scales);
   }
 
-  auto sz = recon.inputDimensions();
   Cropper out_cropper(info, LastN<3>(sz), extra.out_fov.Get());
   Cx4 vol(sz);
   Sz3 outSz = out_cropper.size();
@@ -67,7 +67,7 @@ int main_lsqr(args::Subparser &parser)
     auto const &vol_start = Log::Now();
     vol = lsqr(
       its.Get(),
-      recon,
+      recon.get(),
       reader.noncartesian(iv),
       atol.Get(),
       btol.Get(),

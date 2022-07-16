@@ -13,7 +13,7 @@ typename Op::Input admm_lsmr(
   float rho,
   std::function<Cx4(Cx4 const &)> const &reg,
   Index const lsq_its,
-  Op const &op,
+  Op const *op,
   typename Op::Output const &b,
   LeftPrecond const *M = nullptr, // Left preconditioner
   float const atol = 1.e-6f,
@@ -26,7 +26,7 @@ typename Op::Input admm_lsmr(
   auto dev = Threads::GlobalDevice();
   // Allocate all memory
   using T = typename Op::Input;
-  auto const dims = op.inputDimensions();
+  auto const dims = op->inputDimensions();
   Index const nvox = Product(dims);
   T u(dims), x(dims), z(dims), zold(dims), xpu(dims);
   x.setZero();
@@ -85,7 +85,7 @@ typename Op::Input admm_lsqr(
   float rho,
   std::function<typename Op::Input(typename Op::Input const &)> const &reg,
   Index const lsq_its,
-  Op const &op,
+  Op const *op,
   typename Op::Output const &b,
   LeftPrecond const *M = nullptr, // Left preconditioner
   float const atol = 1.e-6f,
@@ -97,7 +97,7 @@ typename Op::Input admm_lsqr(
   auto dev = Threads::GlobalDevice();
   // Allocate all memory
   using T = typename Op::Input;
-  auto const dims = op.inputDimensions();
+  auto const dims = op->inputDimensions();
   T u(dims), x(dims), z(dims), zold(dims), xpu(dims);
   x.setZero();
   z.setZero();
@@ -154,22 +154,22 @@ template <typename Op>
 struct AugmentedOp
 {
   using Input = typename Op::Input;
-  Op const &op;
+  Op const *op;
   float rho;
 
   auto inputDimensions() const
   {
-    return op.inputDimensions();
+    return op->inputDimensions();
   }
 
   auto outputDimensions() const
   {
-    return op.inputDimensions();
+    return op->inputDimensions();
   }
 
   Input A(typename Op::Input const &x) const
   {
-    return Input(op.AdjA(x) + rho * x);
+    return Input(op->AdjA(x) + rho * x);
   }
 };
 
@@ -178,7 +178,7 @@ typename Op::Input admm_cg(
   Index const outer_its,
   Index const lsq_its,
   float const lsq_thresh,
-  Op const &op,
+  Op const *op,
   std::function<Cx4(Cx4 const &)> const &reg,
   float rho,
   typename Op::Output const &b,
@@ -189,10 +189,10 @@ typename Op::Input admm_cg(
   auto dev = Threads::GlobalDevice();
   // Allocate all memory
   using T = typename Op::Input;
-  auto const dims = op.inputDimensions();
+  auto const dims = op->inputDimensions();
   Index const N = Product(dims);
   T x0(dims), x(dims), z(dims), zold(dims), u(dims), xpu(dims);
-  x0.device(dev) = op.Adj(b);
+  x0.device(dev) = op->Adj(b);
   x.setZero();
   z.setZero();
   u.setZero();
@@ -201,7 +201,7 @@ typename Op::Input admm_cg(
   // Augment system
   AugmentedOp<Op> augmented{op, rho};
   for (Index ii = 0; ii < outer_its; ii++) {
-    x = cg(lsq_its, lsq_thresh, augmented, x0 + x0.constant(rho) * (z - u), x);
+    x = cg(lsq_its, lsq_thresh, &augmented, x0 + x0.constant(rho) * (z - u), x);
     xpu.device(dev) = x + u;
     zold = z;
     z = reg(xpu);

@@ -36,7 +36,7 @@ namespace rl {
 template <typename Op, typename LeftPrecond>
 typename Op::Input lsmr(
   Index const &max_its,
-  Op &op,
+  Op *op,
   typename Op::Output const &b,
   float const atol = 1.e-6f,
   float const btol = 1.e-6f,
@@ -51,8 +51,8 @@ typename Op::Input lsmr(
   // Allocate all memory
   using TI = typename Op::Input;
   using TO = typename Op::Output;
-  auto const inDims = op.inputDimensions();
-  auto const outDims = op.outputDimensions();
+  auto const inDims = op->inputDimensions();
+  auto const outDims = op->outputDimensions();
 
   // Workspace variables
   TO Mu(outDims), u(outDims);
@@ -62,7 +62,7 @@ typename Op::Input lsmr(
   if (x0.size()) {
     CheckDimsEqual(x0.dimensions(), inDims);
     x.device(dev) = x0;
-    Mu.device(dev) = b - op.A(x);
+    Mu.device(dev) = b - op->A(x);
   } else {
     x.setZero();
     Mu.device(dev) = b;
@@ -85,9 +85,9 @@ typename Op::Input lsmr(
   u.device(dev) = u / u.constant(β);
   if (λ > 0.f) {
     ur.device(dev) = ur / ur.constant(β);
-    v.device(dev) = op.Adj(u) + sqrt(λ) * ur;
+    v.device(dev) = op->Adj(u) + sqrt(λ) * ur;
   } else {
-    v.device(dev) = op.Adj(u);
+    v.device(dev) = op->Adj(u);
   }
   float α = Norm(v);
   v.device(dev) = v / v.constant(α);
@@ -126,7 +126,7 @@ typename Op::Input lsmr(
 
   for (Index ii = 0; ii < max_its; ii++) {
     // Bidiagonalization step
-    Mu.device(dev) = op.A(v) - α * Mu;
+    Mu.device(dev) = op->A(v) - α * Mu;
     u.device(dev) = M ? M->apply(Mu) : Mu;
     if (λ > 0.f) {
       ur.device(dev) = (sqrt(λ) * v) - (α * ur);
@@ -138,9 +138,9 @@ typename Op::Input lsmr(
     u.device(dev) = u / u.constant(β);
     if (λ > 0.f) {
       ur.device(dev) = ur / ur.constant(β);
-      v.device(dev) = op.Adj(u) + (sqrt(λ) * ur) - (β * v);
+      v.device(dev) = op->Adj(u) + (sqrt(λ) * ur) - (β * v);
     } else {
-      v.device(dev) = op.Adj(u) - (β * v);
+      v.device(dev) = op->Adj(u) - (β * v);
     }
     α = Norm(v);
     v.device(dev) = v / v.constant(α);

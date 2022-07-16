@@ -2,14 +2,28 @@
 
 namespace rl {
 
-NUFFTOp::NUFFTOp(Sz3 const imgDims, GridBase<Cx> *g, SDCOp *sdc)
+NUFFTOp::NUFFTOp(Sz3 const imgDims, GridBase<Cx> *g, SDCOp *sdc, bool const toeplitz)
   : gridder_{g}
   , fft_{gridder_->workspace(), g->mapping().type != Info::Type::TwoD}
   , pad_{Sz5{g->inputDimensions()[0], g->inputDimensions()[1], imgDims[0], imgDims[1], imgDims[2]}, g->inputDimensions()}
   , apo_{pad_.inputDimensions(), g}
   , sdc_{sdc}
 {
-  Log::Debug("NUFFT Input Dims {} Output Dims {}", inputDimensions(), outputDimensions());
+  if (toeplitz) {
+    Log::Debug("NUFFT: Calculating Töplitz embedding");
+    Sz5 const dims = AddFront(LastN<4>(gridder_->inputDimensions()), 1);
+    tf_.resize(dims);
+    tf_.setConstant(1.f);
+    if (sdc_) {
+      tf_ = gridder_->Adj(sdc_->Adj(gridder_->A(tf_)));
+    } else {
+      tf_ = gridder_->Adj(gridder_->A(tf_));
+    }
+    Log::Tensor(Cx4(tf_.reshape(LastN<4>(dims))), "nufft-tf");
+    Log::Debug(FMT_STRING("NUFFT: Calculated Töplitz. TF dimensions {}"), fmt::join(tf_.dimensions(), ","));
+  } else {
+    Log::Debug("NUFFT Input Dims {} Output Dims {}", inputDimensions(), outputDimensions());
+  }
 }
 
 auto NUFFTOp::inputDimensions() const -> InputDims
@@ -17,40 +31,23 @@ auto NUFFTOp::inputDimensions() const -> InputDims
   return apo_.inputDimensions();
 }
 
-auto NUFFTOp::outputDimensions() const->OutputDims
+auto NUFFTOp::outputDimensions() const -> OutputDims
 {
   return gridder_->outputDimensions();
 }
 
-void NUFFTOp::calcToeplitz()
-{
-  Log::Debug("NUFFT: Calculating Töplitz embedding");
-  Sz5 const dims = AddFront(LastN<4>(gridder_->inputDimensions()), 1);
-  tf_.resize(dims);
-  tf_.setConstant(1.f);
-  if (sdc_) {
-    tf_ = gridder_->Adj(sdc_->Adj(gridder_->A(tf_)));
-  } else {
-    tf_ = gridder_->Adj(gridder_->A(tf_));
-  }
-  Log::Tensor(Cx4(tf_.reshape(LastN<4>(dims))), "nufft-tf");
-  Log::Debug(FMT_STRING("NUFFT: Calculated Töplitz. TF dimensions {}"), fmt::join(tf_.dimensions(), ","));
-}
-
 auto NUFFTOp::A(Input const &x) const -> Output
 {
-  LOG_DEBUG("Starting NUFFT forward. Norm {}", Norm(x));
   auto const &start = Log::Now();
   Output result(outputDimensions());
   result.device(Threads::GlobalDevice()) = gridder_->A(fft_.A(pad_.A(apo_.A(x))));
   Log::Debug("Finished NUFFT forward: {}", Log::ToNow(start));
-  LOG_DEBUG("Norm {}", Norm(result));
   return result;
 }
 
 auto NUFFTOp::Adj(Output const &x) const -> Input
 {
-  LOG_DEBUG("Starting NUFFT adjoint. Norm {}", Norm(x));
+  Log::Debug("Starting NUFFT adjoint");
   auto const start = Log::Now();
   Input result(inputDimensions());
   if (sdc_) {
@@ -59,7 +56,6 @@ auto NUFFTOp::Adj(Output const &x) const -> Input
     result.device(Threads::GlobalDevice()) = apo_.Adj(pad_.Adj(fft_.Adj(gridder_->Adj(x))));
   }
   Log::Debug("Finished NUFFT adjoint: {}", Log::ToNow(start));
-  LOG_DEBUG("Norm {}", Norm(result));
   return result;
 }
 

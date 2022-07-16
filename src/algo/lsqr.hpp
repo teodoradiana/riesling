@@ -33,7 +33,7 @@ float CheckedDot(T const &x1, T const &x2)
 template <typename Op>
 typename Op::Input lsqr(
   Index const &max_its,
-  Op &op,
+  Op *op,
   typename Op::Output const &b,
   float const atol = 1.e-6f,
   float const btol = 1.e-6f,
@@ -49,8 +49,8 @@ typename Op::Input lsqr(
   // Allocate all memory
   using TI = typename Op::Input;
   using TO = typename Op::Output;
-  auto const inDims = op.inputDimensions();
-  auto const outDims = op.outputDimensions();
+  auto const inDims = op->inputDimensions();
+  auto const outDims = op->outputDimensions();
 
   // Workspace variables
   TO Mu(outDims), u(outDims);
@@ -66,7 +66,7 @@ typename Op::Input lsqr(
   if (x0.size()) {
     CheckDimsEqual(x0.dimensions(), inDims);
     x.device(dev) = x0;
-    Mu.device(dev) = b - op.A(x);
+    Mu.device(dev) = b - op->A(x);
   } else {
     x.setZero();
     Mu.device(dev) = b;
@@ -90,9 +90,9 @@ typename Op::Input lsqr(
   u.device(dev) = u / u.constant(β);
   if (λ > 0.f) {
     ur.device(dev) = ur / ur.constant(β);
-    Nv.device(dev) = op.Adj(u) + sqrt(λ) * ur;
+    Nv.device(dev) = op->Adj(u) + sqrt(λ) * ur;
   } else {
-    Nv.device(dev) = op.Adj(u);
+    Nv.device(dev) = op->Adj(u);
   }
   v.device(dev) = N ? N->apply(Nv) : Nv;
   float α = std::sqrt(CheckedDot(v, Nv));
@@ -117,7 +117,7 @@ typename Op::Input lsqr(
 
   for (Index ii = 0; ii < max_its; ii++) {
     // Bidiagonalization step
-    Mu.device(dev) = op.A(v) - α * Mu;
+    Mu.device(dev) = op->A(v) - α * Mu;
     u.device(dev) = M ? M->apply(Mu) : Mu;
     if (debug) {
       Log::Tensor(Mu, fmt::format("lsqr-Mu-{:02d}", ii));
@@ -140,9 +140,9 @@ typename Op::Input lsqr(
     fmt::print("β {} Mu {} u {}\n", β, Norm(Mu), Norm(u));
     if (λ > 0.f) {
       ur.device(dev) = ur / ur.constant(β);
-      Nv.device(dev) = op.Adj(u) + (sqrt(λ) * ur) - (β * Nv);
+      Nv.device(dev) = op->Adj(u) + (sqrt(λ) * ur) - (β * Nv);
     } else {
-      Nv.device(dev) = op.Adj(u) - (β * Nv);
+      Nv.device(dev) = op->Adj(u) - (β * Nv);
     }
     v.device(dev) = N ? N->apply(Nv) : Nv;
     α = std::sqrt(CheckedDot(v, Nv));

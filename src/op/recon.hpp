@@ -18,6 +18,7 @@ struct ReconOp : Operator<4, 3>
   virtual auto A(Input const &x) const -> Output = 0;
   virtual auto Adj(Output const &x) const -> Input = 0;
   virtual auto AdjA(Input const &x) const -> Input = 0;
+
 };
 
 } // namespace rl

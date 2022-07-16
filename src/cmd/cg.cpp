@@ -29,16 +29,18 @@ int main_cg(args::Subparser &parser)
   Info const &info = traj.info();
   auto const kernel = rl::make_kernel(core.ktype.Get(), info.type, core.osamp.Get());
   Mapping const mapping(traj, kernel.get(), core.osamp.Get(), core.bucketSize.Get());
-  auto gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
-  Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
-
-  ReconSENSE recon(gridder.get(), senseMaps, sdc.get());
-  if (toeplitz) {
-    recon.calcToeplitz();
-  }
-  NormalEqOp<ReconSENSE> normEqs{recon};
-  auto sz = recon.inputDimensions();
+  std::unique_ptr<GridBase<Cx>> gridder = nullptr;
+  std::unique_ptr<ReconOp> recon = nullptr;
+  // if (decant) {
+  //   recon = make_decanter_recon();
+  // } else {
+    gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
+    Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
+    recon = std::make_unique<ReconSENSE>(gridder.get(), senseMaps, sdc.get(), toeplitz);
+  // }
+  NormalEqOp<ReconOp> normEqs{recon.get()};
+  auto sz = recon->inputDimensions();
   Cropper out_cropper(info, LastN<3>(sz), extra.out_fov.Get());
   Cx4 vol(sz);
   Sz3 outSz = out_cropper.size();
@@ -47,7 +49,7 @@ int main_cg(args::Subparser &parser)
   auto const &all_start = Log::Now();
   for (Index iv = 0; iv < info.volumes; iv++) {
     auto const &vol_start = Log::Now();
-    vol = cg(its.Get(), thr.Get(), normEqs, recon.Adj(reader.noncartesian(iv)));
+    vol = cg(its.Get(), thr.Get(), &normEqs, recon->Adj(reader.noncartesian(iv)));
     cropped = out_cropper.crop4(vol);
     out.chip<4>(iv) = cropped;
     Log::Print(FMT_STRING("Volume {}: {}"), iv, Log::ToNow(vol_start));

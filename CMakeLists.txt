@@ -63,6 +63,8 @@ add_library(vineyard
     src/op/grid71.cpp
     src/op/grid77.cpp
     src/op/nufft.cpp
+    src/op/recon-sense.cpp
+    src/op/recon-decant.cpp
     src/op/sense.hpp
     src/precond/scaling.cpp
     src/precond/single.cpp

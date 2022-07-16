@@ -24,6 +24,15 @@ struct GridBase : Operator<5, 3, Scalar>
   {
   }
 
+  GridBase(Mapping const &map, Index const channelsIn, Index const channelsOut, Index const d1)
+    : mapping_{map}
+    , inputDims_{AddFront(map.cartDims, channelsIn, d1)}
+    , outputDims_{AddFront(map.noncartDims, channelsOut)}
+    , ws_{std::make_shared<Input>(inputDims_)}
+    , weightFrames_{true}
+  {
+  }
+
   virtual ~GridBase(){};
   virtual Output A(Input const &cart) const = 0;
   virtual Input &Adj(Output const &noncart) const = 0;

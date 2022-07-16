@@ -5,6 +5,8 @@
 #include "log.h"
 #include "op/recon-rss.hpp"
 #include "op/recon-sense.hpp"
+#include "op/recon-decant.hpp"
+#include "op/decanter.hpp"
 #include "parse_args.h"
 #include "sdc.h"
 #include "sense.h"
@@ -24,7 +26,7 @@ int main_recon(args::Subparser &parser)
   args::Flag fwd(parser, "", "Apply forward operation", {'f', "fwd"});
   args::ValueFlag<std::string> trajName(parser, "T", "Override trajectory", {"traj"});
   args::ValueFlag<std::string> basisFile(parser, "BASIS", "Read subspace basis from .h5 file", {"basis", 'b'});
-
+  args::ValueFlag<std::string> decant(parser, "K", "Decant with kernels from file", {"decant"});
   ParseCommand(parser, core.iname);
 
   HD5::RieslingReader reader(core.iname.Get());
@@ -39,17 +41,25 @@ int main_recon(args::Subparser &parser)
 
   auto const kernel = rl::make_kernel(core.ktype.Get(), info.type, core.osamp.Get());
   Mapping const mapping(reader.trajectory(), kernel.get(), core.osamp.Get(), core.bucketSize.Get());
-  auto gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
+  std::unique_ptr<GridBase<Cx>> gridder = nullptr;
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
 
   std::unique_ptr<ReconOp> recon = nullptr;
-  if (rss) {
+  if (decant) {
+    HD5::Reader kFile(decant.Get());
+    Cx4 const kSENSE = kFile.readTensor<Cx4>(HD5::Keys::Kernels);
+    gridder = make_decanter<Cx>(kernel.get(), mapping, kSENSE, core.basisFile.Get());
+    recon = std::make_unique<ReconDecant>(gridder.get(), sdc.get());
+  }
+  else if (rss) {
     if (fwd) {
       Log::Fail("RSS is not compatible with forward Recon Op");
     }
+    gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
     Cropper crop(info, gridder->mapping().cartDims, extra.iter_fov.Get()); // To get correct dims
     recon = std::make_unique<ReconRSS>(gridder.get(), crop.size(), sdc.get());
   } else {
+    gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
     Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
     recon = std::make_unique<ReconSENSE>(gridder.get(), senseMaps, sdc.get());
   }

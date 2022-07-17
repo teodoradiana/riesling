@@ -133,7 +133,7 @@ struct Decanter final : GridBase<Scalar>
     auto const &odims = this->outputDimensions();
     auto const &map = this->mapping_;
     Index const nC = odims[0];
-    Index const nB = odims[1];
+    Index const nFr = idims[1];
     bool const hasBasis = (basis.size() > 0);
     float const scale = map.scale * (hasBasis ? sqrt(basis.dimension(0)) : 1.f);
 
@@ -148,29 +148,43 @@ struct Decanter final : GridBase<Scalar>
       minCorner[0] -= (kSENSE.dimension(1) - 1) / 2;
       minCorner[1] -= (kSENSE.dimension(2) - 1) / 2;
       minCorner[2] -= (kSENSE.dimension(3) - 1) / 2;
-      Input out(AddFront(bSz, nC, nB));
+      Cx4 out(AddFront(bSz, nFr));
       out.setZero();
-
+      Cx1 combined(hasBasis ? nFr : 1);
       for (auto ii = 0; ii < bucket.size(); ii++) {
         auto const si = bucket.indices[ii];
         auto const c = map.cart[si];
         auto const n = map.noncart[si];
         auto const k = this->kGrid->k(map.offset[si]);
-        auto const ifr = map.frame[si];
-        auto const frscale = scale * (this->weightFrames_ ? map.frameWeights[ifr] : 1.f);
+        auto const fr = map.frame[si];
+        auto const frscale = scale * (this->weightFrames_ ? map.frameWeights[fr] : 1.f);
         Index const btp = hasBasis ? n.spoke % basis.dimension(0) : 0;
 
         Index const stSX = c.x - ((kSENSE.dimension(1) - 1) / 2) - minCorner[0];
         Index const stSY = c.y - ((kSENSE.dimension(2) - 1) / 2) - minCorner[1];
         Index const stSZ = c.z - ((kSENSE.dimension(3) - 1) / 2) - minCorner[2];
         Eigen::Tensor<Scalar, 1> const sample = noncart.chip(n.spoke, 2).chip(n.read, 1);
+
         for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
+          Index const rsz = kSENSE.dimension(3) - 1 - isz;
           for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
+            Index const rsy = kSENSE.dimension(2) - 1 - isy;
             for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
-              Cx1 const sval = kSENSE.chip(kSENSE.dimension(3) - 1 - isz, 3)
-                                 .chip(kSENSE.dimension(2) - 1 - isy, 2)
-                                 .chip(kSENSE.dimension(1) - 1 - isx, 1)
-                                 .conjugate();
+              Index const rsx = kSENSE.dimension(1) - 1 - isx;
+              combined.setZero();
+              if (hasBasis) {
+                for (Index ifr = 0; ifr < nFr; ifr++) {
+                  for (Index ic = 0; ic < nC; ic++) {
+                    combined(ifr) +=
+                      basis(btp, ifr) * noncart(ic, n.read, n.spoke) * std::conj(kSENSE(ic, rsx, rsy, rsz));
+                  }
+                }
+              } else {
+                for (Index ic = 0; ic < nC; ic++) {
+                  combined(0) += noncart(ic, n.read, n.spoke) * std::conj(kSENSE(ic, rsx, rsy, rsz));
+                }
+              }
+
               Index const stX = stSX + isx - ((IP - 1) / 2);
               Index const stY = stSY + isy - ((IP - 1) / 2);
               Index const stZ = stSZ + isz - ((TP - 1) / 2);
@@ -182,16 +196,11 @@ struct Decanter final : GridBase<Scalar>
                     Index const iix = stX + ix;
                     float const kval = k(ix, iy, iz) * frscale;
                     if (hasBasis) {
-                      for (Index ib = 0; ib < nB; ib++) {
-                        float const bval = kval * basis(btp, ib);
-                        for (Index ic = 0; ic < nC; ic++) {
-                          out(0, ib, iix, iiy, iiz) += noncart(ic, n.read, n.spoke) * bval * sval(ic);
-                        }
+                      for (Index ib = 0; ib < nFr; ib++) {
+                        out(ib, iix, iiy, iiz) += combined(ib) * kval;
                       }
                     } else {
-                      for (Index ic = 0; ic < nC; ic++) {
-                        out(0, ifr, iix, iiy, iiz) += sample(ic) * kval * sval(ic);
-                      }
+                      out(fr, iix, iiy, iiz) += combined(0) * kval;
                     }
                   }
                 }
@@ -209,10 +218,8 @@ struct Decanter final : GridBase<Scalar>
             Index const iiy = Reflect(minCorner[1] + iy, idims[3]);
             for (Index ix = 0; ix < bSz[0]; ix++) {
               Index const iix = Reflect(minCorner[0] + ix, idims[2]);
-              for (Index ifr = 0; ifr < nB; ifr++) {
-                for (Index ic = 0; ic < nC; ic++) {
-                  this->ws_->operator()(ic, ifr, iix, iiy, iiz) += out(ic, ifr, ix, iy, iz);
-                }
+              for (Index ifr = 0; ifr < nFr; ifr++) {
+                this->ws_->operator()(0, ifr, iix, iiy, iiz) += out(ifr, ix, iy, iz);
               }
             }
           }

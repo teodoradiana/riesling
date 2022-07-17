@@ -155,9 +155,9 @@ struct Decanter final : GridBase<Scalar>
         auto const si = bucket.indices[ii];
         auto const c = map.cart[si];
         auto const n = map.noncart[si];
-        auto const k = this->kGrid->k(map.offset[si]);
         auto const fr = map.frame[si];
         auto const frscale = scale * (this->weightFrames_ ? map.frameWeights[fr] : 1.f);
+        typename SizedKernel<IP, TP>::KTensor const k = this->kGrid->k(map.offset[si]) * frscale;
         Index const btp = hasBasis ? n.spoke % basis.dimension(0) : 0;
 
         Index const stSX = c.x - ((kSENSE.dimension(1) - 1) / 2) - minCorner[0];
@@ -167,10 +167,20 @@ struct Decanter final : GridBase<Scalar>
 
         for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
           Index const rsz = kSENSE.dimension(3) - 1 - isz;
+          Index const stZ = stSZ + isz - ((TP - 1) / 2);
           for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
             Index const rsy = kSENSE.dimension(2) - 1 - isy;
+            Index const stY = stSY + isy - ((IP - 1) / 2);
             for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
               Index const rsx = kSENSE.dimension(1) - 1 - isx;
+              Index const stX = stSX + isx - ((IP - 1) / 2);
+              if (
+                sqrt(
+                  pow((isx - (kSENSE.dimension(0) - 1.f) / 2) / ((kSENSE.dimension(0) - 1.f) / 2), 2) +
+                  pow((isy - (kSENSE.dimension(1) - 1.f) / 2) / ((kSENSE.dimension(1) - 1.f) / 2), 2) +
+                  pow((isz - (kSENSE.dimension(2) - 1.f) / 2) / ((kSENSE.dimension(2) - 1.f) / 2), 2)) > 1.f) {
+                continue;
+              }
               combined.setZero();
               if (hasBasis) {
                 for (Index ifr = 0; ifr < nFr; ifr++) {
@@ -185,16 +195,13 @@ struct Decanter final : GridBase<Scalar>
                 }
               }
 
-              Index const stX = stSX + isx - ((IP - 1) / 2);
-              Index const stY = stSY + isy - ((IP - 1) / 2);
-              Index const stZ = stSZ + isz - ((TP - 1) / 2);
               for (Index iz = 0; iz < TP; iz++) {
                 Index const iiz = stZ + iz;
                 for (Index iy = 0; iy < IP; iy++) {
                   Index const iiy = stY + iy;
                   for (Index ix = 0; ix < IP; ix++) {
                     Index const iix = stX + ix;
-                    float const kval = k(ix, iy, iz) * frscale;
+                    float const kval = k(ix, iy, iz);
                     if (hasBasis) {
                       for (Index ib = 0; ib < nFr; ib++) {
                         out(ib, iix, iiy, iiz) += combined(ib) * kval;

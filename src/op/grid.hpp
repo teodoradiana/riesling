@@ -157,7 +157,7 @@ struct Grid final : GridBase<Scalar>
                 for (Index ib = 0; ib < nB; ib++) {
                   float const bval = kval * basis(btp, ib);
                   for (Index ic = 0; ic < nC; ic++) {
-                    out(ic, ib, iix, iiy, iiz) += noncart(ic, n.read, n.spoke) * bval;
+                    out(ic, ib, iix, iiy, iiz) += sample(ic) * bval;
                   }
                 }
               } else {

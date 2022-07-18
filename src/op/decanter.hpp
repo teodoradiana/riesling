@@ -24,11 +24,11 @@ inline Index Reflect(Index const ii, Index const sz)
 
 namespace rl {
 
-template <int IP, int TP, typename Scalar = Cx>
-struct Decanter final : GridBase<Scalar>
+template <int IP, int TP>
+struct Decanter final : GridBase<Cx>
 {
-  using typename GridBase<Scalar>::Input;
-  using typename GridBase<Scalar>::Output;
+  using typename GridBase<Cx>::Input;
+  using typename GridBase<Cx>::Output;
   using FixIn = Eigen::type2index<IP>;
   using FixThrough = Eigen::type2index<TP>;
 
@@ -37,7 +37,7 @@ struct Decanter final : GridBase<Scalar>
   R2 basis;
 
   Decanter(SizedKernel<IP, TP> const *k, Mapping const &mapping, Cx4 const &kS)
-    : GridBase<Scalar>(mapping, 1, kS.dimension(0), mapping.frames)
+    : GridBase<Cx>(mapping, 1, kS.dimension(0), mapping.frames)
     , kGrid{k}
     , kSENSE{kS}
   {
@@ -45,7 +45,7 @@ struct Decanter final : GridBase<Scalar>
   }
 
   Decanter(SizedKernel<IP, TP> const *k, Mapping const &mapping, Cx4 const &kS, R2 const b)
-    : GridBase<Scalar>(mapping, 1, kS.dimension(0), b.dimension(1))
+    : GridBase<Cx>(mapping, 1, kS.dimension(0), b.dimension(1))
     , kGrid{k}
     , kSENSE{kS}
     , basis{b}
@@ -53,12 +53,12 @@ struct Decanter final : GridBase<Scalar>
     Log::Debug(FMT_STRING("Decanter<{},{}>, dims {}"), IP, TP, this->inputDimensions());
   }
 
-  auto inSphere(Index const isx, Index const isy, Index const isz) const -> bool
+  auto inSphere(Index const isx, Index const isy, Index const isz, Sz3 const dims) const -> bool
   {
     return sqrt(
-             pow((isx - (kSENSE.dimension(0) - 1) / 2) / float((kSENSE.dimension(0) - 1) / 2), 2) +
-             pow((isy - (kSENSE.dimension(1) - 1) / 2) / float((kSENSE.dimension(1) - 1) / 2), 2) +
-             pow((isz - (kSENSE.dimension(2) - 1) / 2) / float((kSENSE.dimension(2) - 1) / 2), 2)) > 1.25f;
+             pow((isx - (dims[0] - 1) / 2) / float((dims[0] - 1) / 2), 2) +
+             pow((isy - (dims[1] - 1) / 2) / float((dims[1] - 1) / 2), 2) +
+             pow((isz - (dims[2] - 1) / 2) / float((dims[2] - 1) / 2), 2)) < 1.25f;
   }
 
   Output A(Input const &cart) const
@@ -72,53 +72,44 @@ struct Decanter final : GridBase<Scalar>
     auto const &idims = this->inputDimensions();
     auto const &odims = this->outputDimensions();
     Index const nC = odims[0];
-    Index const nB = odims[1];
-    auto const &map = this->mapping_;
     bool const hasBasis = (basis.size() > 0);
+    Index const nB = hasBasis ? idims[1] : 1;
+    auto const &map = this->mapping_;
+
     float const scale = map.scale * (hasBasis ? sqrt(basis.dimension(0)) : 1.f);
 
     auto grid_task = [&](Index const ibucket) {
       auto const &bucket = map.buckets[ibucket];
+
+      Sz5 kSz = AddFront(LastN<3>(kSENSE.dimensions()), nC, nB);
+      kSz[2] += 2 * ((IP - 1) / 2);
+      kSz[3] += 2 * ((IP - 1) / 2);
+      kSz[4] += 2 * ((TP - 1) / 2);
+      Cx5 expanded(kSz);
       Cx1 sample(nC);
       for (auto ii = 0; ii < bucket.size(); ii++) {
         auto const si = bucket.indices[ii];
         auto const c = map.cart[si];
         auto const n = map.noncart[si];
-        auto const ifr = map.frame[si];
-        R3 const k = this->kGrid->k(map.offset[si]) * scale;
+        auto const ifr = hasBasis ? 0 : map.frame[si];
         Index const btp = hasBasis ? n.spoke % basis.dimension(0) : 0;
+        R3 const k = this->kGrid->k(map.offset[si]) * scale;
 
-        Index const stX = c.x - ((IP - 1) / 2);
-        Index const stY = c.y - ((IP - 1) / 2);
-        Index const stZ = c.z - ((TP - 1) / 2);
+        // First convolve the gridding and SENSE kernels
         sample.setZero();
-        for (Index iz = 0; iz < TP; iz++) {
-          Index const iiz = stZ + iz;
-          for (Index iy = 0; iy < IP; iy++) {
-            Index const iiy = stY + iy;
-            for (Index ix = 0; ix < IP; ix++) {
-              Index const iix = stX + ix;
-              float const kval = k(ix, iy, iz);
-
-              Index const stSX = iix - ((kSENSE.dimension(1) - 1) / 2);
-              Index const stSY = iiy - ((kSENSE.dimension(2) - 1) / 2);
-              Index const stSZ = iiz - ((kSENSE.dimension(3) - 1) / 2);
-              for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
-                Index const iiiz = Reflect(stSZ + isz, idims[4]);
-                for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
-                  Index const iiiy = Reflect(stSY + isy, idims[3]);
-                  for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
-                    Index const iiix = Reflect(stSX + isx, idims[2]);
-                    if (hasBasis) {
+        for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
+          for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
+            for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
+              if (inSphere(isx, isy, isz, LastN<3>(kSENSE.dimensions()))) {
+                for (Index iz = 0; iz < TP; iz++) {
+                  for (Index iy = 0; iy < IP; iy++) {
+                    for (Index ix = 0; ix < IP; ix++) {
+                      float const kval = k(ix, iy, iz);
                       for (Index ib = 0; ib < nB; ib++) {
-                        float const bval = basis(btp, ib) * kval;
+                        float const bval = kval * (hasBasis ? basis(btp, ib) : 1.f);
                         for (Index ic = 0; ic < nC; ic++) {
-                          sample(ic) += bval * kSENSE(ic, isx, isy, isz) * cart(0, ib, iiix, iiiy, iiiz);
+                          sample(ic) += bval * kSENSE(ic, isx, isy, isz);
                         }
-                      }
-                    } else {
-                      for (Index ic = 0; ic < nC; ic++) {
-                        sample(ic) += kSENSE(ic, isx, isy, isz) * cart(0, ifr, iiix, iiiy, iiiz);
                       }
                     }
                   }
@@ -176,7 +167,7 @@ struct Decanter final : GridBase<Scalar>
         Index const stSX = c.x - ((kSENSE.dimension(1) - 1) / 2) - minCorner[0];
         Index const stSY = c.y - ((kSENSE.dimension(2) - 1) / 2) - minCorner[1];
         Index const stSZ = c.z - ((kSENSE.dimension(3) - 1) / 2) - minCorner[2];
-        Eigen::Tensor<Scalar, 1> const sample = noncart.chip(n.spoke, 2).chip(n.read, 1);
+        Cx1 const sample = noncart.chip(n.spoke, 2).chip(n.read, 1);
 
         for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
           Index const rsz = kSENSE.dimension(3) - 1 - isz;
@@ -187,36 +178,35 @@ struct Decanter final : GridBase<Scalar>
             for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
               Index const rsx = kSENSE.dimension(1) - 1 - isx;
               Index const stX = stSX + isx - ((IP - 1) / 2);
-              if (inSphere(isx, isy, isz)) {
-                continue;
-              }
-              combined.setZero();
-              if (hasBasis) {
-                for (Index ifr = 0; ifr < nFr; ifr++) {
+              if (inSphere(isx, isy, isz, LastN<3>(kSENSE.dimensions()))) {
+                combined.setZero();
+                if (hasBasis) {
+                  for (Index ifr = 0; ifr < nFr; ifr++) {
+                    for (Index ic = 0; ic < nC; ic++) {
+                      combined(ifr) +=
+                        basis(btp, ifr) * noncart(ic, n.read, n.spoke) * std::conj(kSENSE(ic, rsx, rsy, rsz));
+                    }
+                  }
+                } else {
                   for (Index ic = 0; ic < nC; ic++) {
-                    combined(ifr) +=
-                      basis(btp, ifr) * noncart(ic, n.read, n.spoke) * std::conj(kSENSE(ic, rsx, rsy, rsz));
+                    combined(0) += noncart(ic, n.read, n.spoke) * std::conj(kSENSE(ic, rsx, rsy, rsz));
                   }
                 }
-              } else {
-                for (Index ic = 0; ic < nC; ic++) {
-                  combined(0) += noncart(ic, n.read, n.spoke) * std::conj(kSENSE(ic, rsx, rsy, rsz));
-                }
-              }
 
-              for (Index iz = 0; iz < TP; iz++) {
-                Index const iiz = stZ + iz;
-                for (Index iy = 0; iy < IP; iy++) {
-                  Index const iiy = stY + iy;
-                  for (Index ix = 0; ix < IP; ix++) {
-                    Index const iix = stX + ix;
-                    float const kval = k(ix, iy, iz);
-                    if (hasBasis) {
-                      for (Index ib = 0; ib < nFr; ib++) {
-                        out(ib, iix, iiy, iiz) += combined(ib) * kval;
+                for (Index iz = 0; iz < TP; iz++) {
+                  Index const iiz = stZ + iz;
+                  for (Index iy = 0; iy < IP; iy++) {
+                    Index const iiy = stY + iy;
+                    for (Index ix = 0; ix < IP; ix++) {
+                      Index const iix = stX + ix;
+                      float const kval = k(ix, iy, iz);
+                      if (hasBasis) {
+                        for (Index ib = 0; ib < nFr; ib++) {
+                          out(ib, iix, iiy, iiz) += combined(ib) * kval;
+                        }
+                      } else {
+                        out(fr, iix, iiy, iiz) += combined(0) * kval;
                       }
-                    } else {
-                      out(fr, iix, iiy, iiz) += combined(0) * kval;
                     }
                   }
                 }
@@ -269,8 +259,7 @@ struct Decanter final : GridBase<Scalar>
   }
 };
 
-template <typename Scalar>
-std::unique_ptr<GridBase<Scalar>>
+inline std::unique_ptr<GridBase<Cx>>
 make_decanter(Kernel const *k, Mapping const &m, Cx4 const &kS, std::string const &basisFile)
 {
   if (!basisFile.empty()) {
@@ -278,38 +267,38 @@ make_decanter(Kernel const *k, Mapping const &m, Cx4 const &kS, std::string cons
     R2 const b = basisReader.readTensor<R2>(HD5::Keys::Basis);
     switch (k->inPlane()) {
     case 1:
-      return std::make_unique<Decanter<1, 1, Scalar>>(dynamic_cast<SizedKernel<1, 1> const *>(k), m, kS, b);
+      return std::make_unique<Decanter<1, 1>>(dynamic_cast<SizedKernel<1, 1> const *>(k), m, kS, b);
     case 3:
       if (k->throughPlane() == 1) {
-        return std::make_unique<Decanter<3, 1, Scalar>>(dynamic_cast<SizedKernel<3, 1> const *>(k), m, kS, b);
+        return std::make_unique<Decanter<3, 1>>(dynamic_cast<SizedKernel<3, 1> const *>(k), m, kS, b);
       } else if (k->throughPlane() == 3) {
-        return std::make_unique<Decanter<3, 3, Scalar>>(dynamic_cast<SizedKernel<3, 3> const *>(k), m, kS, b);
+        return std::make_unique<Decanter<3, 3>>(dynamic_cast<SizedKernel<3, 3> const *>(k), m, kS, b);
       }
       break;
     case 5:
       if (k->throughPlane() == 1) {
-        return std::make_unique<Decanter<5, 1, Scalar>>(dynamic_cast<SizedKernel<5, 1> const *>(k), m, kS, b);
+        return std::make_unique<Decanter<5, 1>>(dynamic_cast<SizedKernel<5, 1> const *>(k), m, kS, b);
       } else if (k->throughPlane() == 5) {
-        return std::make_unique<Decanter<5, 5, Scalar>>(dynamic_cast<SizedKernel<5, 5> const *>(k), m, kS, b);
+        return std::make_unique<Decanter<5, 5>>(dynamic_cast<SizedKernel<5, 5> const *>(k), m, kS, b);
       }
       break;
     }
   } else {
     switch (k->inPlane()) {
     case 1:
-      return std::make_unique<Decanter<1, 1, Scalar>>(dynamic_cast<SizedKernel<1, 1> const *>(k), m, kS);
+      return std::make_unique<Decanter<1, 1>>(dynamic_cast<SizedKernel<1, 1> const *>(k), m, kS);
     case 3:
       if (k->throughPlane() == 1) {
-        return std::make_unique<Decanter<3, 1, Scalar>>(dynamic_cast<SizedKernel<3, 1> const *>(k), m, kS);
+        return std::make_unique<Decanter<3, 1>>(dynamic_cast<SizedKernel<3, 1> const *>(k), m, kS);
       } else if (k->throughPlane() == 3) {
-        return std::make_unique<Decanter<3, 3, Scalar>>(dynamic_cast<SizedKernel<3, 3> const *>(k), m, kS);
+        return std::make_unique<Decanter<3, 3>>(dynamic_cast<SizedKernel<3, 3> const *>(k), m, kS);
       }
       break;
     case 5:
       if (k->throughPlane() == 1) {
-        return std::make_unique<Decanter<5, 1, Scalar>>(dynamic_cast<SizedKernel<5, 1> const *>(k), m, kS);
+        return std::make_unique<Decanter<5, 1>>(dynamic_cast<SizedKernel<5, 1> const *>(k), m, kS);
       } else if (k->throughPlane() == 5) {
-        return std::make_unique<Decanter<5, 5, Scalar>>(dynamic_cast<SizedKernel<5, 5> const *>(k), m, kS);
+        return std::make_unique<Decanter<5, 5>>(dynamic_cast<SizedKernel<5, 5> const *>(k), m, kS);
       }
       break;
     }

@@ -48,7 +48,7 @@ int main_recon(args::Subparser &parser)
   if (decant) {
     HD5::Reader kFile(decant.Get());
     Cx4 const kSENSE = kFile.readTensor<Cx4>(HD5::Keys::Kernels);
-    gridder = make_decanter<Cx>(kernel.get(), mapping, kSENSE, core.basisFile.Get());
+    gridder = make_decanter(kernel.get(), mapping, kSENSE, core.basisFile.Get());
     recon = std::make_unique<ReconDecant>(gridder.get(), sdc.get());
   }
   else if (rss) {

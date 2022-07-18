@@ -79,45 +79,46 @@ struct Decanter final : GridBase<Scalar>
 
     auto grid_task = [&](Index const ibucket) {
       auto const &bucket = map.buckets[ibucket];
-
+      Cx1 sample(nC);
       for (auto ii = 0; ii < bucket.size(); ii++) {
         auto const si = bucket.indices[ii];
         auto const c = map.cart[si];
         auto const n = map.noncart[si];
         auto const ifr = map.frame[si];
-        auto const k = this->kGrid->k(map.offset[si]);
+        R3 const k = this->kGrid->k(map.offset[si]) * scale;
         Index const btp = hasBasis ? n.spoke % basis.dimension(0) : 0;
-        Index const stSX = c.x - ((kSENSE.dimension(1) - 1) / 2);
-        Index const stSY = c.y - ((kSENSE.dimension(2) - 1) / 2);
-        Index const stSZ = c.z - ((kSENSE.dimension(3) - 1) / 2);
-        Eigen::Tensor<Scalar, 1> sum(nC);
-        for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
-          for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
-            for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
-              if (inSphere(isx, isy, isz)) {
-                continue;
-              }
-              Cx1 const sval = kSENSE.chip(isz, 3).chip(isy, 2).chip(isx, 1);
-              Index const stX = stSX + isx - ((IP - 1) / 2);
-              Index const stY = stSY + isy - ((IP - 1) / 2);
-              Index const stZ = stSZ + isz - ((TP - 1) / 2);
-              for (Index iz = 0; iz < TP; iz++) {
-                Index const iiz = Reflect(stZ + iz, idims[4]);
-                for (Index iy = 0; iy < IP; iy++) {
-                  Index const iiy = Reflect(stY + iy, idims[3]);
-                  for (Index ix = 0; ix < IP; ix++) {
-                    Index const iix = Reflect(stX + ix, idims[2]);
-                    float const kval = k(ix, iy, iz) * scale;
+
+        Index const stX = c.x - ((IP - 1) / 2);
+        Index const stY = c.y - ((IP - 1) / 2);
+        Index const stZ = c.z - ((TP - 1) / 2);
+        sample.setZero();
+        for (Index iz = 0; iz < TP; iz++) {
+          Index const iiz = stZ + iz;
+          for (Index iy = 0; iy < IP; iy++) {
+            Index const iiy = stY + iy;
+            for (Index ix = 0; ix < IP; ix++) {
+              Index const iix = stX + ix;
+              float const kval = k(ix, iy, iz);
+
+              Index const stSX = iix - ((kSENSE.dimension(1) - 1) / 2);
+              Index const stSY = iiy - ((kSENSE.dimension(2) - 1) / 2);
+              Index const stSZ = iiz - ((kSENSE.dimension(3) - 1) / 2);
+              for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
+                Index const iiiz = Reflect(stSZ + isz, idims[4]);
+                for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
+                  Index const iiiy = Reflect(stSY + isy, idims[3]);
+                  for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
+                    Index const iiix = Reflect(stSX + isx, idims[2]);
                     if (hasBasis) {
                       for (Index ib = 0; ib < nB; ib++) {
                         float const bval = basis(btp, ib) * kval;
                         for (Index ic = 0; ic < nC; ic++) {
-                          sum(ic) += cart(0, ib, iix, iiy, iiz) * bval * sval(ic);
+                          sample(ic) += bval * kSENSE(ic, isx, isy, isz) * cart(0, ib, iiix, iiiy, iiiz);
                         }
                       }
                     } else {
                       for (Index ic = 0; ic < nC; ic++) {
-                        sum(ic) += cart(0, ifr, iix, iiy, iiz) * kval * sval(ic);
+                        sample(ic) += kSENSE(ic, isx, isy, isz) * cart(0, ifr, iiix, iiiy, iiiz);
                       }
                     }
                   }
@@ -126,7 +127,7 @@ struct Decanter final : GridBase<Scalar>
             }
           }
         }
-        noncart.chip(n.spoke, 2).chip(n.read, 1) = sum;
+        noncart.chip(n.spoke, 2).chip(n.read, 1) = sample;
       }
     };
 

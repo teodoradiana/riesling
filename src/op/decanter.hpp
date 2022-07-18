@@ -81,12 +81,12 @@ struct Decanter final : GridBase<Cx>
     auto grid_task = [&](Index const ibucket) {
       auto const &bucket = map.buckets[ibucket];
 
-      Sz5 kSz = AddFront(LastN<3>(kSENSE.dimensions()), nC, nB);
-      kSz[2] += 2 * ((IP - 1) / 2);
-      kSz[3] += 2 * ((IP - 1) / 2);
-      kSz[4] += 2 * ((TP - 1) / 2);
-      Cx5 expanded(kSz);
-      Cx1 sample(nC);
+      Sz4 eSz = AddFront(LastN<3>(kSENSE.dimensions()), nC);
+      eSz[1] += 2 * ((IP - 1) / 2);
+      eSz[2] += 2 * ((IP - 1) / 2);
+      eSz[3] += 2 * ((TP - 1) / 2);
+      Cx4 eImg(eSz);
+
       for (auto ii = 0; ii < bucket.size(); ii++) {
         auto const si = bucket.indices[ii];
         auto const c = map.cart[si];
@@ -94,22 +94,20 @@ struct Decanter final : GridBase<Cx>
         auto const ifr = hasBasis ? 0 : map.frame[si];
         Index const btp = hasBasis ? n.spoke % basis.dimension(0) : 0;
         R3 const k = this->kGrid->k(map.offset[si]) * scale;
-
-        // First convolve the gridding and SENSE kernels
-        sample.setZero();
+        eImg.setZero();
         for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
           for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
             for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
               if (inSphere(isx, isy, isz, LastN<3>(kSENSE.dimensions()))) {
                 for (Index iz = 0; iz < TP; iz++) {
+                  Index const iiz = iz + isz;
                   for (Index iy = 0; iy < IP; iy++) {
+                    Index const iiy = iy + isy;
                     for (Index ix = 0; ix < IP; ix++) {
+                      Index const iix = ix + isx;
                       float const kval = k(ix, iy, iz);
-                      for (Index ib = 0; ib < nB; ib++) {
-                        float const bval = kval * (hasBasis ? basis(btp, ib) : 1.f);
-                        for (Index ic = 0; ic < nC; ic++) {
-                          sample(ic) += bval * kSENSE(ic, isx, isy, isz);
-                        }
+                      for (Index ic = 0; ic < nC; ic++) {
+                        eImg(ic, iix, iiy, iiz) += kval * kSENSE(ic, isx, isy, isz);
                       }
                     }
                   }
@@ -118,7 +116,29 @@ struct Decanter final : GridBase<Cx>
             }
           }
         }
-        noncart.chip(n.spoke, 2).chip(n.read, 1) = sample;
+
+        Index const stX = c.x - (eSz[0] - 1) / 2;
+        Index const stY = c.y - (eSz[1] - 1) / 2;
+        Index const stZ = c.z - (eSz[2] - 1) / 2;
+
+        for (Index iz = 0; iz < eSz[2]; iz++) {
+          Index const iiz = stZ + iz;
+          for (Index iy = 0; iy < eSz[1]; iy++) {
+            Index const iiy = stY + iy;
+            for (Index ix = 0; ix < eSz[0]; ix++) {
+              Index const iix = stX + ix;
+              if (inSphere(ix, iy, iz, LastN<3>(eSz))) {
+                Cx bval = 0;
+                for (Index ib = 0; ib < nB; ib++) {
+                  bval += (hasBasis ? basis(btp, ib) : 1.f) * cart(0, ib + ifr, iix, iiy, iiz);
+                }
+                for (Index ic = 0; ic < nC; ic++) {
+                  noncart(ic, n.read, n.spoke) += bval * eImg(ic, ix, iy, iz);
+                }
+              }
+            }
+          }
+        }
       }
     };
 

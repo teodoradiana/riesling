@@ -104,7 +104,12 @@ Cx4 SelfCalibrationKernels(
   Log::Print(FMT_STRING("FFT back to k-space"));
   fft->forward(channels);
   Log::Print(FMT_STRING("Crop to kernel size"));
-  Cx4 const kernels = Crop4(channels, Sz3{kSz, kSz, kSz});
+  Cx4 kernels = Crop4(channels, Sz3{kSz, kSz, kSz});
+  float const scale = 1.f / Norm(kernels);
+  Log::Print(FMT_STRING("Rescale by {}"), scale);
+  fmt::print(FMT_STRING("Norm before: {}\n"), Norm(kernels));
+  kernels = kernels * kernels.constant(scale);
+  fmt::print(FMT_STRING("Norm after: {}\n"), Norm(kernels));
   Log::Print(FMT_STRING("Finished SENSE kernels"));
   return kernels;
 }

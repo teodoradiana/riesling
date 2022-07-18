@@ -11,7 +11,7 @@
 
 namespace {
 
-inline Index Reflect(Index const ii, Index const sz)
+inline Index Wrap(Index const ii, Index const sz)
 {
   if (ii < 0)
     return sz + ii;
@@ -83,11 +83,11 @@ struct Grid final : GridBase<Scalar>
         Eigen::Tensor<Scalar, 1> sum(nC);
         sum.setZero();
         for (Index iz = 0; iz < TP; iz++) {
-          Index const iiz = Reflect(stZ + iz, cdims[4]);
+          Index const iiz = Wrap(stZ + iz, cdims[4]);
           for (Index iy = 0; iy < IP; iy++) {
-            Index const iiy = Reflect(stY + iy, cdims[3]);
+            Index const iiy = Wrap(stY + iy, cdims[3]);
             for (Index ix = 0; ix < IP; ix++) {
-              Index const iix = Reflect(stX + ix, cdims[2]);
+              Index const iix = Wrap(stX + ix, cdims[2]);
               float const kval = k(ix, iy, iz) * scale;
               if (hasBasis) {
                 for (Index ib = 0; ib < nB; ib++) {
@@ -152,7 +152,7 @@ struct Grid final : GridBase<Scalar>
             Index const iiy = stY + iy;
             for (Index ix = 0; ix < IP; ix++) {
               Index const iix = stX + ix;
-              float const kval = k(ix, iy, iz) * frscale;
+              float const kval = k(IP - 1 - ix, IP - 1 - iy, TP - 1 - iz) * frscale;
               if (hasBasis) {
                 for (Index ib = 0; ib < nB; ib++) {
                   float const bval = kval * basis(btp, ib);
@@ -173,11 +173,11 @@ struct Grid final : GridBase<Scalar>
       {
         std::scoped_lock lock(writeMutex);
         for (Index iz = 0; iz < bSz[2]; iz++) {
-          Index const iiz = Reflect(bucket.minCorner[2] + iz, cdims[4]);
+          Index const iiz = Wrap(bucket.minCorner[2] + iz, cdims[4]);
           for (Index iy = 0; iy < bSz[1]; iy++) {
-            Index const iiy = Reflect(bucket.minCorner[1] + iy, cdims[3]);
+            Index const iiy = Wrap(bucket.minCorner[1] + iy, cdims[3]);
             for (Index ix = 0; ix < bSz[0]; ix++) {
-              Index const iix = Reflect(bucket.minCorner[0] + ix, cdims[2]);
+              Index const iix = Wrap(bucket.minCorner[0] + ix, cdims[2]);
               for (Index ifr = 0; ifr < nB; ifr++) {
                 for (Index ic = 0; ic < nC; ic++) {
                   this->ws_->operator()(ic, ifr, iix, iiy, iiz) += out(ic, ifr, ix, iy, iz);

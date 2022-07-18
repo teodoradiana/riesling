@@ -3,6 +3,7 @@
 #include "algo/cg.hpp"
 #include "cropper.h"
 #include "log.h"
+#include "op/recon-decant.hpp"
 #include "op/recon-sense.hpp"
 #include "parse_args.h"
 #include "sdc.h"
@@ -21,6 +22,7 @@ int main_cg(args::Subparser &parser)
   args::Flag toeplitz(parser, "T", "Use Töplitz embedding", {"toe", 't'});
   args::ValueFlag<float> thr(parser, "T", "Termination threshold (1e-10)", {"thresh"}, 1.e-10);
   args::ValueFlag<Index> its(parser, "N", "Max iterations (8)", {"max-its"}, 8);
+  args::ValueFlag<std::string> decant(parser, "K", "Decant with kernels from file", {"decant"});
 
   ParseCommand(parser, core.iname);
 
@@ -32,13 +34,16 @@ int main_cg(args::Subparser &parser)
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
   std::unique_ptr<GridBase<Cx>> gridder = nullptr;
   std::unique_ptr<ReconOp> recon = nullptr;
-  // if (decant) {
-  //   recon = make_decanter_recon();
-  // } else {
+  if (decant) {
+    HD5::Reader kFile(decant.Get());
+    Cx4 const kSENSE = kFile.readTensor<Cx4>(HD5::Keys::Kernels);
+    gridder = make_decanter<Cx>(kernel.get(), mapping, kSENSE, core.basisFile.Get());
+    recon = std::make_unique<ReconDecant>(gridder.get(), sdc.get());
+  } else {
     gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
     Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
     recon = std::make_unique<ReconSENSE>(gridder.get(), senseMaps, sdc.get(), toeplitz);
-  // }
+  }
   NormalEqOp<ReconOp> normEqs{recon.get()};
   auto sz = recon->inputDimensions();
   Cropper out_cropper(info, LastN<3>(sz), extra.out_fov.Get());

@@ -24,7 +24,7 @@ auto ReconDecant::A(Input const &x) const -> Output
   Log::Debug("Starting Decant forward. Norm {}", Norm(x));
   auto const start = Log::Now();
   Cx5 temp(AddFront(inputDimensions(), 1));
-  temp.chip(0,0) = x;
+  temp.chip(0, 0) = x;
   auto const y = nufft_.A(temp);
   Log::Debug("Finished Decant forward. Norm {}. Took {}", Norm(y), Log::ToNow(start));
   return y;
@@ -42,7 +42,14 @@ auto ReconDecant::Adj(Output const &x) const -> Input
 
 auto ReconDecant::AdjA(Input const &x) const -> Input
 {
-  Log::Fail("Not supported yet");
+  Log::Debug("Starting ReconDecant adjoint*forward. Norm {}", Norm(x));
+  Input y(inputDimensions());
+  auto const start = Log::Now();
+  Cx5 temp(AddFront(inputDimensions(), 1));
+  temp.chip(0, 0) = x;
+  y.device(Threads::GlobalDevice()) = nufft_.AdjA(temp).chip(0, 0);
+  Log::Debug("Finished ReconDecant adjoint*forward. Norm {}. Took {}", Norm(y), Log::ToNow(start));
+  return y;
 }
 
 } // namespace rl

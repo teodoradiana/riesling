@@ -4,6 +4,7 @@
 #include "recon.hpp"
 #include "sdc.hpp"
 #include "sense.hpp"
+#include "decanter.hpp"
 
 namespace rl {
 

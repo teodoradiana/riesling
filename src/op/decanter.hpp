@@ -3,6 +3,7 @@
 #include "cropper.h"
 #include "fft/fft.hpp"
 #include "gridBase.hpp"
+#include "io/reader.hpp"
 #include "threads.h"
 
 #include <mutex>
@@ -52,6 +53,14 @@ struct Decanter final : GridBase<Scalar>
     Log::Debug(FMT_STRING("Decanter<{},{}>, dims {}"), IP, TP, this->inputDimensions());
   }
 
+  auto inSphere(Index const isx, Index const isy, Index const isz) const -> bool
+  {
+    return sqrt(
+             pow((isx - (kSENSE.dimension(0) - 1) / 2) / float((kSENSE.dimension(0) - 1) / 2), 2) +
+             pow((isy - (kSENSE.dimension(1) - 1) / 2) / float((kSENSE.dimension(1) - 1) / 2), 2) +
+             pow((isz - (kSENSE.dimension(2) - 1) / 2) / float((kSENSE.dimension(2) - 1) / 2), 2)) > 1.25f;
+  }
+
   Output A(Input const &cart) const
   {
     if (cart.dimensions() != this->inputDimensions()) {
@@ -85,6 +94,9 @@ struct Decanter final : GridBase<Scalar>
         for (Index isz = 0; isz < kSENSE.dimension(3); isz++) {
           for (Index isy = 0; isy < kSENSE.dimension(2); isy++) {
             for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
+              if (inSphere(isx, isy, isz)) {
+                continue;
+              }
               Cx1 const sval = kSENSE.chip(isz, 3).chip(isy, 2).chip(isx, 1);
               Index const stX = stSX + isx - ((IP - 1) / 2);
               Index const stY = stSY + isy - ((IP - 1) / 2);
@@ -174,11 +186,7 @@ struct Decanter final : GridBase<Scalar>
             for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
               Index const rsx = kSENSE.dimension(1) - 1 - isx;
               Index const stX = stSX + isx - ((IP - 1) / 2);
-              if (
-                sqrt(
-                  pow((isx - (kSENSE.dimension(0) - 1.f) / 2) / ((kSENSE.dimension(0) - 1.f) / 2), 2) +
-                  pow((isy - (kSENSE.dimension(1) - 1.f) / 2) / ((kSENSE.dimension(1) - 1.f) / 2), 2) +
-                  pow((isz - (kSENSE.dimension(2) - 1.f) / 2) / ((kSENSE.dimension(2) - 1.f) / 2), 2)) > 1.f) {
+              if (inSphere(isx, isy, isz)) {
                 continue;
               }
               combined.setZero();

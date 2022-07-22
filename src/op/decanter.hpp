@@ -105,7 +105,7 @@ struct Decanter final : GridBase<Cx>
                     Index const iiy = iy + isy;
                     for (Index ix = 0; ix < IP; ix++) {
                       Index const iix = ix + isx;
-                      float const kval = k(ix, iy, iz);
+                      float const kval = k(IP - 1 - ix, IP - 1 - iy, TP - 1 - iz);
                       for (Index ic = 0; ic < nC; ic++) {
                         eImg(ic, iix, iiy, iiz) += kval * kSENSE(ic, isx, isy, isz);
                       }
@@ -219,7 +219,7 @@ struct Decanter final : GridBase<Cx>
                     Index const iiy = stY + iy;
                     for (Index ix = 0; ix < IP; ix++) {
                       Index const iix = stX + ix;
-                      float const kval = k(IP - 1 - ix, IP - 1 - iy, TP - 1 - iz);
+                      float const kval = k(ix, iy, iz);
                       if (hasBasis) {
                         for (Index ib = 0; ib < nFr; ib++) {
                           out(ib, iix, iiy, iiz) += combined(ib) * kval;

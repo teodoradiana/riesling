@@ -54,6 +54,13 @@ add_library(vineyard
     src/io/reader.cpp
     src/io/writer.cpp
     src/op/apodize.cpp
+    src/op/decanter11.cpp
+    src/op/decanter31.cpp
+    src/op/decanter33.cpp
+    src/op/decanter51.cpp
+    src/op/decanter55.cpp
+    src/op/decanter71.cpp
+    src/op/decanter77.cpp
     src/op/gridBase.cpp
     src/op/grid11.cpp
     src/op/grid31.cpp

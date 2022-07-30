@@ -77,4 +77,57 @@ make_grid<float>(Kernel const *k, Mapping const &m, Index const nC, std::string 
 template std::unique_ptr<GridBase<Cx>>
 make_grid<Cx>(Kernel const *k, Mapping const &m, Index const nC, std::string const &basisFile);
 
+template <int IP, int TP>
+auto make_decanter_internal(Kernel const *k, Mapping const &m, Cx4 const &kS) -> std::unique_ptr<GridBase<Cx>>;
+template <int IP, int TP>
+auto make_decanter_internal(Kernel const *k, Mapping const &m, Cx4 const &kS, R2 const &basis)
+  -> std::unique_ptr<GridBase<Cx>>;
+
+std::unique_ptr<GridBase<Cx>>
+make_decanter(Kernel const *k, Mapping const &m, Cx4 const &kS, std::string const &basisFile)
+{
+  if (!basisFile.empty()) {
+    HD5::Reader basisReader(basisFile);
+    R2 const b = basisReader.readTensor<R2>(HD5::Keys::Basis);
+    switch (k->inPlane()) {
+    case 1:
+      return make_decanter_internal<1, 1>(dynamic_cast<SizedKernel<1, 1> const *>(k), m, kS, b);
+    case 3:
+      if (k->throughPlane() == 1) {
+        return make_decanter_internal<3, 1>(dynamic_cast<SizedKernel<3, 1> const *>(k), m, kS, b);
+      } else if (k->throughPlane() == 3) {
+        return make_decanter_internal<3, 3>(dynamic_cast<SizedKernel<3, 3> const *>(k), m, kS, b);
+      }
+      break;
+    case 5:
+      if (k->throughPlane() == 1) {
+        return make_decanter_internal<5, 1>(dynamic_cast<SizedKernel<5, 1> const *>(k), m, kS, b);
+      } else if (k->throughPlane() == 5) {
+        return make_decanter_internal<5, 5>(dynamic_cast<SizedKernel<5, 5> const *>(k), m, kS, b);
+      }
+      break;
+    }
+  } else {
+    switch (k->inPlane()) {
+    case 1:
+      return make_decanter_internal<1, 1>(dynamic_cast<SizedKernel<1, 1> const *>(k), m, kS);
+    case 3:
+      if (k->throughPlane() == 1) {
+        return make_decanter_internal<3, 1>(dynamic_cast<SizedKernel<3, 1> const *>(k), m, kS);
+      } else if (k->throughPlane() == 3) {
+        return make_decanter_internal<3, 3>(dynamic_cast<SizedKernel<3, 3> const *>(k), m, kS);
+      }
+      break;
+    case 5:
+      if (k->throughPlane() == 1) {
+        return make_decanter_internal<5, 1>(dynamic_cast<SizedKernel<5, 1> const *>(k), m, kS);
+      } else if (k->throughPlane() == 5) {
+        return make_decanter_internal<5, 5>(dynamic_cast<SizedKernel<5, 5> const *>(k), m, kS);
+      }
+      break;
+    }
+  }
+  Log::Fail(FMT_STRING("No grids implemented for in-plane kernel width {}"), k->inPlane());
+}
+
 } // namespace rl

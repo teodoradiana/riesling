@@ -72,7 +72,10 @@ protected:
 };
 
 template <typename Scalar>
-std::unique_ptr<GridBase<Scalar>>
-make_grid(Kernel const *k, Mapping const &m, Index const nC, std::string const &basis = "");
+auto make_grid(Kernel const *k, Mapping const &m, Index const nC, std::string const &basis = "")
+  -> std::unique_ptr<GridBase<Scalar>>;
+
+auto make_decanter(Kernel const *k, Mapping const &m, Cx4 const &kS, std::string const &basisFile)
+  -> std::unique_ptr<GridBase<Cx>>;
 
 } // namespace rl

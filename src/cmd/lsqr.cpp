@@ -41,7 +41,7 @@ int main_lsqr(args::Subparser &parser)
   auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
   Cx4 senseMaps = SENSE::Choose(senseOpts, info, gridder.get(), extra.iter_fov.Get(), sdc.get(), reader);
   auto recon = std::make_unique<ReconSENSE>(gridder.get(), senseMaps, sdc.get(), false);
-  auto const sz = recon.inputDimensions();
+  auto const sz = recon->inputDimensions();
 
   std::unique_ptr<Precond<Cx3>> M = lp ? std::make_unique<SingleChannel>(traj, kernel.get()) : nullptr;
   std::unique_ptr<Precond<Cx4>> N = nullptr;

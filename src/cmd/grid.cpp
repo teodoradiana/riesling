@@ -16,6 +16,7 @@ int main_grid(args::Subparser &parser)
   SDC::Opts sdcOpts(parser);
   args::Flag fwd(parser, "", "Apply forward operation", {'f', "fwd"});
   args::Flag bucket(parser, "", "Use bucket gridder", {"bucket"});
+  args::ValueFlag<std::string> decant(parser, "K", "Decant with kernels from file", {"decant"});
 
   ParseCommand(parser, core.iname);
   HD5::RieslingReader reader(core.iname.Get());
@@ -24,7 +25,14 @@ int main_grid(args::Subparser &parser)
 
   auto const kernel = rl::make_kernel(core.ktype.Get(), info.type, core.osamp.Get());
   Mapping const mapping(traj, kernel.get(), core.osamp.Get(), core.bucketSize.Get());
-  auto gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
+  std::unique_ptr<GridBase<Cx>> gridder = nullptr;
+  if (decant) {
+    HD5::Reader kFile(decant.Get());
+    Cx4 const kSENSE = kFile.readTensor<Cx4>(HD5::Keys::Kernels);
+    gridder = make_decanter(kernel.get(), mapping, kSENSE, core.basisFile.Get());
+  } else {
+    gridder = make_grid<Cx>(kernel.get(), mapping, info.channels, core.basisFile.Get());
+  }
   Cx3 rad_ks = info.noncartesianVolume();
   HD5::Writer writer(OutName(core.iname.Get(), core.oname.Get(), "grid", "h5"));
   writer.writeTrajectory(traj);

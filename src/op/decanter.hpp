@@ -204,7 +204,7 @@ struct Decanter final : GridBase<Cx>
             for (Index isx = 0; isx < kSENSE.dimension(1); isx++) {
               Index const rsx = kSENSE.dimension(1) - 1 - isx;
               Index const stX = stSX + isx - ((IP - 1) / 2);
-              if (inSphere(isx, isy, isz, LastN<3>(kSENSE.dimensions()))) {
+              // if (inSphere(isx, isy, isz, LastN<3>(kSENSE.dimensions()))) {
                 combined.setZero();
                 for (Index ib = 0; ib < nB; ib++) {
                   float const bval = hasBasis ? basis(btp, ib) : 1.f;
@@ -226,7 +226,7 @@ struct Decanter final : GridBase<Cx>
                     }
                   }
                 }
-              }
+              // }
             }
           }
         }

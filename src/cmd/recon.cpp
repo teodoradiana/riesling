@@ -3,10 +3,10 @@
 #include "cropper.h"
 #include "io/hd5.hpp"
 #include "log.h"
+#include "op/decanter.hpp"
+#include "op/recon-decant.hpp"
 #include "op/recon-rss.hpp"
 #include "op/recon-sense.hpp"
-#include "op/recon-decant.hpp"
-#include "op/decanter.hpp"
 #include "parse_args.h"
 #include "sdc.h"
 #include "sense.h"
@@ -50,8 +50,7 @@ int main_recon(args::Subparser &parser)
     Cx4 const kSENSE = kFile.readTensor<Cx4>(HD5::Keys::Kernels);
     gridder = make_decanter(kernel.get(), mapping, kSENSE, core.basisFile.Get());
     recon = std::make_unique<ReconDecant>(gridder.get(), sdc.get());
-  }
-  else if (rss) {
+  } else if (rss) {
     if (fwd) {
       Log::Fail("RSS is not compatible with forward Recon Op");
     }

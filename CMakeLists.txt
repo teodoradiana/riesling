@@ -12,6 +12,7 @@ link_libraries("$<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VER
 
 find_package(Threads REQUIRED)
 find_package(args CONFIG REQUIRED)
+find_package(BLAS)
 find_package(Catch2 CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
@@ -22,7 +23,7 @@ find_package(range-v3 CONFIG REQUIRED)
 find_package(scn CONFIG REQUIRED)
 
 # Ensure this is always defined across all .cpp files
-add_definitions(-DEIGEN_USE_THREADS)
+add_definitions(-DEIGEN_USE_THREADS -DEIGEN_USE_BLAS)
 
 # Common library between tests and main executable
 add_library(vineyard
@@ -96,6 +97,7 @@ add_library(vineyard
 target_include_directories(vineyard PUBLIC src)
 target_link_libraries(vineyard PUBLIC
     ${CMAKE_THREAD_LIBS_INIT}
+    BLAS::BLAS
     Eigen3::Eigen
     fmt::fmt-header-only
     FFTW3::fftw3f

@@ -45,7 +45,8 @@ auto IR::simulate(Eigen::ArrayXf const &p) const -> Eigen::ArrayXf
 
   // Get steady state after prep-pulse for first segment
   Eigen::Matrix2f const seg =
-    (Essi * Eramp * (E1 * A).pow(settings.spokesPerSeg + settings.spokesSpoil) * Eramp).pow(settings.segsPerPrep);
+    (Essi * (E1 * A).pow(settings.k0) * Eramp * (E1 * A).pow(settings.spokesPerSeg + settings.spokesSpoil) * Eramp)
+      .pow(settings.segsPerPrep);
   Eigen::Matrix2f const SS = Einv * inv * Erec * seg;
   float const           m_ss = SS(0, 1) / (1.f - SS(0, 0));
 
@@ -62,6 +63,10 @@ auto IR::simulate(Eigen::ArrayXf const &p) const -> Eigen::ArrayXf
       Mz = E1 * A * Mz;
     }
     Mz = Essi * Eramp * Mz;
+    for (Index ii = 0; ii < settings.k0; ii++) {
+      dynamic(tp++) = Mz(0) * sina;
+      Mz = E1 * A * Mz;
+    }
   }
   if (tp != settings.spokesPerSeg * settings.segsPerPrep) { Log::Fail("Programmer error"); }
   return dynamic;

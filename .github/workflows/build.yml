@@ -2,7 +2,7 @@ name: Build
 on:
   push:
     branches:
-      - main
+      - main, hermitian
     tags:
       - '*'
   pull_request:

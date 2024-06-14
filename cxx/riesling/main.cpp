@@ -56,7 +56,6 @@ int main(int const argc, char const *const argv[])
   COMMAND(op, nufft, "op-nufft", "Apply forward/adjoint NUFFT");
   COMMAND(op, pad, "op-pad", "Pad/crop an image");
   COMMAND(op, prox, "op-prox", "Apply Proximal operators");
-  COMMAND(op, rss, "op-rss", "Take RSS across first dimension");
   COMMAND(op, op_sense, "op-sense", "Channel combine with SENSE");
   COMMAND(op, wavelets, "op-wavelets", "Apply wavelet transform");
 
@@ -64,7 +63,8 @@ int main(int const argc, char const *const argv[])
   COMMAND(util, autofocus, "autofocus", "Apply Noll's autofocussing");
   COMMAND(util, denoise, "denoise", "Denoise reconstructed images");
   COMMAND(util, eig, "eig", "Calculate largest eigenvalue / vector");
-  COMMAND(util, filter, "filter", "Apply Tukey filter to image");
+  COMMAND(util, filter, "filter", "Apply Tukey filter to image"); 
+  COMMAND(util, maths, "maths", "Perform basic algebra operations");
   COMMAND(util, phantom, "phantom", "Make a phantom image");
   COMMAND(util, precon, "precon", "Precompute preconditioning weights");
   COMMAND(util, psf, "psf", "Estimate Point Spread Function");

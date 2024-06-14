@@ -26,7 +26,6 @@ add_executable(riesling
     op/prox.cpp
     op/sense.cpp
     op/pad.cpp
-    op/rss.cpp
     op/wavelets.cpp
 
     recon/channels.cpp
@@ -46,6 +45,7 @@ add_executable(riesling
     util/downsamp.cpp
     util/eig.cpp
     util/filter.cpp
+    util/maths.cpp
     util/phantom.cpp
     util/precon.cpp
     util/psf.cpp
